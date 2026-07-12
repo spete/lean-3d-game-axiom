@@ -1,0 +1,27 @@
+# Lean and Lake build products
+.lake/
+build/
+
+# Native release artifacts
+dist/
+*.app/
+*.dSYM/
+*.zip
+*.sha256
+
+# Local game and QA state
+*.axm
+axiom-qa-*
+qa-output/
+
+# Editors and macOS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local environment
+.env
+.env.*
+!.env.example

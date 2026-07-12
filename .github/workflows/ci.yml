@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      LEAN_CC: /usr/bin/clang
+      MACOSX_DEPLOYMENT_TARGET: "26.0"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          use-mathlib-cache: false
+      - name: Fetch pinned Lake dependencies
+        run: lake update
+      - name: Build pinned raylib submodule
+        run: lake run raylib/buildSubmodule
+      - name: Build game and acceptance suite
+        run: lake build axiom axiom_tests
+      - name: Run acceptance suite
+        run: lake exe axiom_tests
+      - name: Package and verify native app
+        run: ./package.sh

@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a bounded improvement with a clear player benefit
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What player or contributor need does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance test
+      description: How would we know this is complete and correct?
+    validations:
+      required: true

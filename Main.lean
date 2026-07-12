@@ -75,8 +75,7 @@ def drawLoading (headline detail : String) : BaseIO Unit := do
   Raylib.beginDrawing
   Raylib.clearBackground Raylib.Color.black
   drawSky 0
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   Raylib.drawRectangle 0 0 width height (Raylib.Color.fromRgba 10 18 24 128)
   Raylib.drawText headline 72 (height / 2 - 55) 40 (Raylib.Color.fromRgba 255 238 202 255)
   Raylib.drawText detail 76 (height / 2 + 5) 18 (Raylib.Color.fromRgba 194 215 216 230)
@@ -87,7 +86,9 @@ def main (args : List String) : IO Unit := do
   -- Retina resolution already gives crisp voxel edges; forcing 4x MSAA on top
   -- of it needlessly quadruples fragment work and misses the 60 Hz budget.
   Raylib.setConfigFlags (.windowResizable ||| .vsyncHint ||| .windowHighdpi)
-  let ctx ← Raylib.initWindow 1440 900 "AXIOM: FIRST LIGHT — built in Lean 4".toSubstring
+  -- Keep the first window inside a laptop's usable work area. macOS otherwise
+  -- clamps an oversized window without synchronizing Raylib's logical size.
+  let ctx ← Raylib.initWindow 1280 760 "AXIOM: FIRST LIGHT — built in Lean 4".toSubstring
   Raylib.setExitKey .null
   Raylib.setTargetFPS 60
   Raylib.setWindowMinSize 960 600
@@ -101,8 +102,14 @@ def main (args : List String) : IO Unit := do
   let qaMotionArg := args.contains "--qa-motion"
   let qaInteractArg := args.contains "--qa-interact"
   let qaPerfArg := args.contains "--qa-perf"
+  -- Window probes exercise Raylib's live Retina callbacks, not a mocked canvas.
   let qaResizeArg := args.contains "--qa-resize"
+  let qaMaximizeArg := args.contains "--qa-maximize"
+  let qaFirstMaximizeArg := args.contains "--qa-first-maximize"
+  let qaWindowCycleArg := args.contains "--qa-window-cycle"
+  let qaWindowArg := qaResizeArg || qaMaximizeArg || qaFirstMaximizeArg || qaWindowCycleArg
   if qaResizeArg then Raylib.setWindowSize 1180 720
+  else if qaMaximizeArg then Raylib.maximizeWindow
   let envCapture ← IO.getEnv "AXIOM_QA_CAPTURE"
   let envPlay ← IO.getEnv "AXIOM_QA_PLAY"
   let envHold ← IO.getEnv "AXIOM_QA_HOLD"
@@ -111,8 +118,9 @@ def main (args : List String) : IO Unit := do
     if qaTitleArg then some "/tmp/axiom-title.png"
     else if qaPlayArg then some "/tmp/axiom-play.png"
     else if qaResizeArg then some "/tmp/axiom-resize.png"
+    else if qaMaximizeArg then some "/tmp/axiom-maximize.png"
     else envCapture
-  let qaPlay := qaPlayArg || qaInteractArg || qaPerfArg || qaResizeArg || envPlay == some "1"
+  let qaPlay := qaPlayArg || qaInteractArg || qaPerfArg || qaWindowArg || envPlay == some "1"
 
   drawLoading "AXIOM: FIRST LIGHT" "Recovering the island from a proof..."
   let loaded ← loadGame?
@@ -136,8 +144,8 @@ def main (args : List String) : IO Unit := do
   let audio ← loadAudioBank ctx
   let mut gpu ← buildGpuWorld ctx world
   let mut pendingMeshes : Array PendingMeshJob := #[]
-  let mut screen := if qaResizeArg then Screen.paused else if qaPlay then Screen.playing else Screen.title
-  if qaPlay && !qaResizeArg then Raylib.disableCursor
+  let mut screen := if qaWindowArg then Screen.paused else if qaPlay then Screen.playing else Screen.title
+  if qaPlay && !qaWindowArg then Raylib.disableCursor
   let mut showDebug := false
   let mut hit : Option VoxelHit := none
   let mut lastBreak : Float32 := -10
@@ -150,11 +158,23 @@ def main (args : List String) : IO Unit := do
   let mut qaDtMax : Float32 := 0
   let mut qaDtMaxFrame : Nat := 0
   let mut qaDtCount : Nat := 0
+  let mut normalizedFirstMaximize := false
 
   repeat do
+    if qaFirstMaximizeArg && qaFrame == 20 then Raylib.maximizeWindow
+    if qaWindowCycleArg then
+      if qaFrame == 20 || qaFrame == 300 then Raylib.maximizeWindow
+      else if qaFrame == 160 then Raylib.restoreWindow
+    -- Cocoa's first live Retina maximize can leave Raylib's native viewport in
+    -- its old window state. Replaying the transition once makes later resizes
+    -- stable and happens before the maximized frame can remain on screen.
+    if !normalizedFirstMaximize && (← Raylib.isWindowMaximized) then
+      Raylib.restoreWindow
+      Raylib.maximizeWindow
+      normalizedFirstMaximize := true
     let time ← Raylib.getTime
     let dt ← Raylib.getFrameTime
-    if qaFrame ≥ 10 && (qaTitleArg || qaPlayArg || qaMotionArg || qaInteractArg || qaPerfArg || qaResizeArg) then
+    if qaFrame ≥ 10 && (qaTitleArg || qaPlayArg || qaMotionArg || qaInteractArg || qaPerfArg || qaWindowArg) then
       qaDtTotal := qaDtTotal + dt
       if dt > qaDtMax then
         qaDtMax := dt
@@ -252,7 +272,7 @@ def main (args : List String) : IO Unit := do
             toastUntil := time + 3
           lastSave := time
     | .paused =>
-      if !qaResizeArg then
+      if !qaWindowArg then
         let resumeClicked ← Raylib.isMouseButtonPressed .left
         if (← Raylib.isKeyPressed .escape) || resumeClicked then
           playSound? audio.ui
@@ -292,7 +312,7 @@ def main (args : List String) : IO Unit := do
     Raylib.endMode3D
     drawWorldTint time
 
-    if qaResizeArg then
+    if qaWindowArg then
       drawHud player false
       drawPauseOverlay
     else
@@ -308,20 +328,35 @@ def main (args : List String) : IO Unit := do
     qaFrame := qaFrame + 1
     let motionFrame := qaFrame == 60 || qaFrame == 120 || qaFrame == 180 || qaFrame == 240
     let capturePath? :=
-      if qaMotionArg && motionFrame then some s!"/tmp/axiom-motion-{qaFrame}.png"
+      if qaFirstMaximizeArg && qaFrame == 120 then some "/tmp/axiom-first-live-maximize.png"
+      else if qaWindowCycleArg && qaFrame == 120 then some "/tmp/axiom-cycle-maximize-1.png"
+      else if qaWindowCycleArg && qaFrame == 260 then some "/tmp/axiom-cycle-restored.png"
+      else if qaWindowCycleArg && qaFrame == 400 then some "/tmp/axiom-cycle-maximize-2.png"
+      else if qaMotionArg && motionFrame then some s!"/tmp/axiom-motion-{qaFrame}.png"
       else if qaInteractArg && qaFrame == 70 then some "/tmp/axiom-interact-break.png"
       else if qaInteractArg && qaFrame == 110 then some "/tmp/axiom-interact-place.png"
       else if qaFrame == 120 then qaCapture?
       else none
     if let some path := capturePath? then
-        if qaResizeArg then
+        if qaWindowArg then
           let screenWidth ← Raylib.getScreenWidth
           let screenHeight ← Raylib.getScreenHeight
           let renderWidth ← Raylib.getRenderWidth
           let renderHeight ← Raylib.getRenderHeight
           let scale ← Raylib.getWindowScaleDPI
-          IO.FS.writeFile "/tmp/axiom-resize-metrics.txt"
-            s!"screen={screenWidth}x{screenHeight}\nrender={renderWidth}x{renderHeight}\nscale={scale.x}x{scale.y}\n"
+          let (layoutWidth, layoutHeight) ← layoutSize
+          let mode :=
+            if qaMaximizeArg then "maximize"
+            else if qaResizeArg then "resize"
+            else if qaFirstMaximizeArg then "first-live-maximize"
+            else if qaFrame < 160 then "cycle-maximize-1"
+            else if qaFrame < 300 then "cycle-restored"
+            else "cycle-maximize-2"
+          let metricsPath :=
+            if qaWindowCycleArg then s!"/tmp/axiom-window-{mode}-metrics.txt"
+            else "/tmp/axiom-window-metrics.txt"
+          IO.FS.writeFile metricsPath
+            s!"mode={mode}\nscreen={screenWidth}x{screenHeight}\nrender={renderWidth}x{renderHeight}\nlayout={layoutWidth}x{layoutHeight}\nscale={scale.x}x{scale.y}\n"
         -- Entering and leaving 3D mode flushes Raylib's queued 2D HUD batch,
         -- allowing the QA readback to sample the complete frame pre-swap.
         Raylib.beginMode3D camera
@@ -332,7 +367,9 @@ def main (args : List String) : IO Unit := do
     Raylib.endDrawing
     let qaShouldExit := !qaHold && ((qaMotionArg && qaFrame == 260) ||
       (qaInteractArg && qaFrame == 130) || (qaPerfArg && qaFrame == 600) ||
-      (!qaMotionArg && qaFrame == 132 && qaCapture?.isSome))
+      (qaFirstMaximizeArg && qaFrame == 140) ||
+      (qaWindowCycleArg && qaFrame == 420) ||
+      (!qaMotionArg && !qaWindowCycleArg && qaFrame == 132 && qaCapture?.isSome))
     if qaShouldExit then
       let average := if qaDtCount == 0 then 0 else qaDtTotal / qaDtCount.toFloat32
       IO.FS.writeFile "/tmp/axiom-qa-perf.txt"

@@ -12,6 +12,15 @@ def rgbaColor (color : Rgba) : Raylib.Color :=
 structure Visuals where
   material : Raylib.Material
 
+def layoutSize : BaseIO (Int32 × Int32) := do
+  let renderWidth ← Raylib.getRenderWidth
+  let renderHeight ← Raylib.getRenderHeight
+  let scale ← Raylib.getWindowScaleDPI
+  let scaleX := if scale.x > 0 then scale.x else 1
+  let scaleY := if scale.y > 0 then scale.y else 1
+  return (max 1 (renderWidth.toFloat32 / scaleX).toInt32,
+    max 1 (renderHeight.toFloat32 / scaleY).toInt32)
+
 def createVisuals (ctx : Raylib.Context) : BaseIO Visuals := do
   return { material := Raylib.Material.getDefault ctx }
 
@@ -29,8 +38,7 @@ def daylight (time : Float32) : Float32 :=
   clamp32 0 1 (angle.sin * 1.18 + 0.12)
 
 def drawSky (time : Float32) : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   let light := daylight time
   let top := mixRgba ⟨15, 23, 48, 255⟩ ⟨77, 126, 166, 255⟩ light
   let bottom := mixRgba ⟨47, 49, 72, 255⟩ ⟨211, 192, 157, 255⟩ light
@@ -56,8 +64,7 @@ def drawSky (time : Float32) : BaseIO Unit := do
 def drawWorldTint (time : Float32) : BaseIO Unit := do
   let darkness := 1 - daylight time
   if darkness > 0.02 then
-    let width := (← Raylib.getScreenWidth).toInt32
-    let height := (← Raylib.getScreenHeight).toInt32
+    let (width, height) ← layoutSize
     let alpha := UInt8.ofNat (min 112 (darkness * 112).toUInt32.toNat)
     Raylib.drawRectangle 0 0 width height (Raylib.Color.fromRgba 13 20 42 alpha)
 
@@ -91,8 +98,7 @@ def drawSelection (hit : Option VoxelHit) : BaseIO Unit := do
     Raylib.drawCubeWires center 1.014 1.014 1.014 (Raylib.Color.fromRgba 255 244 204 245)
 
 def drawCrosshair : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   let cx := width / 2
   let cy := height / 2
   let shadow := Raylib.Color.fromRgba 12 18 24 170
@@ -103,8 +109,7 @@ def drawCrosshair : BaseIO Unit := do
   Raylib.drawLine cx (cy - 7) cx (cy + 7) light
 
 def drawHotbar (player : Player) : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   let slot : Int32 := 52
   let gap : Int32 := 5
   let total := slot * 9 + gap * 8
@@ -145,7 +150,7 @@ def drawHud (player : Player) (showDebug : Bool) : BaseIO Unit := do
   drawStatus player showDebug
 
 def drawToast (message : String) : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
+  let (width, _) ← layoutSize
   let textWidth ← Raylib.measureText message 16
   let x := (width - textWidth.toInt32) / 2
   Raylib.drawRectangleRounded ⟨(x - 14).toFloat32, 112, (textWidth + 28).toFloat32, 34⟩ 0.3 5
@@ -153,8 +158,7 @@ def drawToast (message : String) : BaseIO Unit := do
   Raylib.drawText message x 122 16 (Raylib.Color.fromRgba 255 240 207 245)
 
 def drawTitleOverlay (hasSave : Bool) : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   Raylib.drawRectangleGradientH 0 0 (width * 3 / 5) height
     (Raylib.Color.fromRgba 10 18 25 235) (Raylib.Color.fromRgba 10 18 25 0)
   Raylib.drawText "AXIOM" 74 112 72 (Raylib.Color.fromRgba 255 240 203 255)
@@ -169,8 +173,7 @@ def drawTitleOverlay (hasSave : Bool) : BaseIO Unit := do
     (Raylib.Color.fromRgba 180 199 200 180)
 
 def drawPauseOverlay : BaseIO Unit := do
-  let width := (← Raylib.getScreenWidth).toInt32
-  let height := (← Raylib.getScreenHeight).toInt32
+  let (width, height) ← layoutSize
   Raylib.drawRectangle 0 0 width height (Raylib.Color.fromRgba 7 12 17 178)
   let panelX := width / 2 - 230
   let panelY := height / 2 - 150

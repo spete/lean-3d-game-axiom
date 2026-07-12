@@ -4,7 +4,11 @@ open Lake DSL
 
 require raylib from git
   "https://github.com/KislyjKisel/Raylib.lean" @ "054884afbc8bc65e1df438db2b2ffdabcad427c8"
-  with NameMap.empty.insert `cc "/usr/bin/clang"
+  with NameMap.empty
+    |>.insert `cc "/usr/bin/clang"
+    |>.insert `raylib "custom"
+    |>.insert `cflags
+      "-I.lake/packages/raylib/raylib/build/raylib/include -I.lake/packages/raylib/raylib/src/external/glfw/include"
 
 package "axiom" {
   leanOptions := #[⟨`autoImplicit, false⟩]

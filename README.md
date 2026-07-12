@@ -67,9 +67,9 @@ Clone this repository, enter its directory, then run:
 ./scripts/run.sh
 ```
 
-The first setup builds the pinned Raylib source, including Axiom's macOS Retina
-resize fix, and can take several minutes. Afterwards, `./scripts/run.sh`
-launches the game.
+The first setup builds the pinned Raylib source, including Axiom's small macOS
+Retina resize fix, and can take several minutes.
+Afterwards, `./scripts/run.sh` launches the game.
 
 ## Explore the code
 

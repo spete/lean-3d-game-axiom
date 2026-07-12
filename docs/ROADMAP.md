@@ -4,7 +4,8 @@ The current `0.2.x` line is a polished finite-island creative sandbox.
 
 Potential future work:
 
-- Cross-platform linker/build support for Linux and Windows.
+- Cross-platform build support for Linux (Windows is supported; see
+  `docs/WINDOWS.md`).
 - Configurable seeds and multiple named worlds.
 - Streaming signed chunk coordinates beyond the finite island.
 - Greedy meshing, frustum culling and richer transparent-water rendering.

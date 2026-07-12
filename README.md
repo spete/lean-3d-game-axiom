@@ -4,7 +4,7 @@
 
 [![Lean 4](https://img.shields.io/badge/Lean-4.20-0d6b8f)](https://lean-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Apple%20Silicon%20macOS-lightgrey)](#run-it)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)](#run-it)
 
 You might know Lean as a language for proving mathematical theorems. Axiom uses
 the same machinery to build a game.
@@ -50,7 +50,7 @@ On an Apple Silicon Mac, unzip the release and open `Axiom.app`. Because the app
 is ad-hoc signed rather than Apple-notarized, you may need to right-click it and
 choose **Open** the first time.
 
-### From source
+### From source (macOS)
 
 You need Apple Silicon macOS 26, Homebrew
 [`elan`](https://github.com/leanprover/elan), and `/usr/bin/clang`.
@@ -70,6 +70,20 @@ Clone this repository, enter its directory, then run:
 The first setup builds the pinned Raylib source, including Axiom's small macOS
 Retina resize fix, and can take several minutes.
 Afterwards, `./scripts/run.sh` launches the game.
+
+### From source (Windows)
+
+You need elan, MSYS2 with the UCRT64 toolchain, CMake, Ninja, and Git for
+Windows. From git-bash:
+
+```bash
+./scripts/check-windows.sh
+./scripts/setup-windows.sh
+./scripts/run-windows.sh
+```
+
+See [`docs/WINDOWS.md`](docs/WINDOWS.md) for the full guide, configuration,
+and troubleshooting. Saves live at `%APPDATA%\Axiom\first-light.axm`.
 
 ## Explore the code
 

@@ -5,6 +5,17 @@ versioning for tagged releases.
 
 ## [Unreleased]
 
+### Added
+
+- Windows (x86-64) build and runtime support: platform-conditional lakefile,
+  Windows save location (`%APPDATA%\Axiom`), QA artifacts in `%TEMP%`, and
+  `scripts/*-windows.sh` (preflight doctor, setup, build, run) with
+  signature-based UCRT MinGW toolchain detection. See `docs/WINDOWS.md`.
+- On-disk save persistence acceptance tests (round-trip, missing file,
+  corrupt-file quarantine) via path-injectable `saveGameAt`/`loadGameAt?`.
+- Windows release packaging (`scripts/package-windows.sh`): self-contained
+  exe + license bundle as a checksummed zip.
+
 ## [0.2.1] - 2026-07-12
 
 ### Fixed

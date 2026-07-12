@@ -9,9 +9,9 @@ storage, deterministic generation, visible-face meshing, worker-task rebuilds,
 physics, collision, DDA targeting, edits, particles, sound synthesis, saves,
 screen state and the main loop.
 
-Raylib owns platform access: the macOS window, input events, GPU draw calls and
-audio-device output. Raylib does not provide a voxel engine, world model or game
-rules.
+Raylib owns platform access: the native window (macOS or Windows), input
+events, GPU draw calls and audio-device output. Raylib does not provide a
+voxel engine, world model or game rules.
 
 ## Frame flow
 

@@ -8,7 +8,7 @@ review.
 1. Install `elan`, `/usr/bin/clang`, CMake and the macOS command-line tools.
 2. Run `lake update`.
 3. Run `lake run raylib/buildSubmodule` once to compile the pinned raylib code.
-4. Run `./build.sh` and `lake exe axiom_tests`.
+4. Run `./scripts/build.sh` and `lake exe axiom_tests`.
 
 The current native target is Apple Silicon macOS 26. Portability work is
 welcome, but should keep platform-specific linker configuration isolated.

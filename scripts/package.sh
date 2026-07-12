@@ -1,6 +1,6 @@
 #!/bin/zsh
 set -euo pipefail
-cd "${0:A:h}"
+cd "${0:A:h:h}"
 export LEAN_CC=/usr/bin/clang
 export MACOSX_DEPLOYMENT_TARGET=26.0
 lake build
@@ -8,7 +8,7 @@ licenses="dist/Axiom.app/Contents/Resources/Licenses"
 mkdir -p "dist/Axiom.app/Contents/MacOS" "$licenses"
 cp "packaging/Info.plist" "dist/Axiom.app/Contents/Info.plist"
 cp "LICENSE" "dist/Axiom.app/Contents/Resources/LICENSE-Axiom.txt"
-cp "THIRD_PARTY_NOTICES.md" "dist/Axiom.app/Contents/Resources/THIRD_PARTY_NOTICES.md"
+cp "docs/THIRD_PARTY_NOTICES.md" "dist/Axiom.app/Contents/Resources/THIRD_PARTY_NOTICES.md"
 cp ".lake/packages/raylib/LICENSE" "$licenses/Raylib.lean-BSD-3-Clause.txt"
 cp ".lake/packages/raylib/raylib/LICENSE" "$licenses/raylib-Zlib.txt"
 cp ".lake/packages/pod/LICENSE" "$licenses/lean-pod-BSD-3-Clause.txt"

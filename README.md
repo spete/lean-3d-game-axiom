@@ -64,12 +64,12 @@ Clone this repository, enter its directory, then run:
 ```bash
 LEAN_CC=/usr/bin/clang lake update
 LEAN_CC=/usr/bin/clang lake run raylib/buildSubmodule
-./build.sh
-./run.sh
+./scripts/build.sh
+./scripts/run.sh
 ```
 
 The first setup builds the pinned Raylib source and can take several minutes.
-Afterwards, `./run.sh` launches the game.
+Afterwards, `./scripts/run.sh` launches the game.
 
 ## Explore the code
 
@@ -95,11 +95,11 @@ LEAN_CC=/usr/bin/clang lake build axiom_tests
 LEAN_CC=/usr/bin/clang lake exe axiom_tests
 
 # Build the macOS app
-./package.sh
+./scripts/package.sh
 codesign --verify --deep --strict dist/Axiom.app
 
 # Create a release ZIP and checksum
-./release.sh
+./scripts/release.sh
 ```
 
 Saves live at `~/Library/Application Support/Axiom/first-light.axm`. Invalid
@@ -107,10 +107,10 @@ saves are moved aside rather than overwritten.
 
 ## Contributing and license
 
-Contributions are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+Contributions are welcome; see [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) and the
 [`roadmap`](docs/ROADMAP.md). Report security issues using
-[`SECURITY.md`](SECURITY.md).
+[`SECURITY.md`](.github/SECURITY.md).
 
 Axiom is released under the [MIT License](LICENSE). Third-party licenses are
-listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). No third-party art
+listed in [`THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md). No third-party art
 or audio assets are included.

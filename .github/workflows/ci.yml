@@ -35,4 +35,4 @@ jobs:
       - name: Run acceptance suite
         run: lake exe axiom_tests
       - name: Package and verify native app
-        run: ./package.sh
+        run: ./scripts/package.sh

@@ -110,15 +110,18 @@ def main (args : List String) : IO Unit := do
   let qaWindowArg := qaResizeArg || qaMaximizeArg || qaFirstMaximizeArg || qaWindowCycleArg
   if qaResizeArg then Raylib.setWindowSize 1180 720
   else if qaMaximizeArg then Raylib.maximizeWindow
+  -- QA artifacts directory: /tmp on Unix, %TEMP% on Windows.
+  let tempEnv ← IO.getEnv "TEMP"
+  let qaTmp := if System.Platform.isWindows then tempEnv.getD "." else "/tmp"
   let envCapture ← IO.getEnv "AXIOM_QA_CAPTURE"
   let envPlay ← IO.getEnv "AXIOM_QA_PLAY"
   let envHold ← IO.getEnv "AXIOM_QA_HOLD"
   let qaHold := envHold == some "1"
   let qaCapture? :=
-    if qaTitleArg then some "/tmp/axiom-title.png"
-    else if qaPlayArg then some "/tmp/axiom-play.png"
-    else if qaResizeArg then some "/tmp/axiom-resize.png"
-    else if qaMaximizeArg then some "/tmp/axiom-maximize.png"
+    if qaTitleArg then some s!"{qaTmp}/axiom-title.png"
+    else if qaPlayArg then some s!"{qaTmp}/axiom-play.png"
+    else if qaResizeArg then some s!"{qaTmp}/axiom-resize.png"
+    else if qaMaximizeArg then some s!"{qaTmp}/axiom-maximize.png"
     else envCapture
   let qaPlay := qaPlayArg || qaInteractArg || qaPerfArg || qaWindowArg || envPlay == some "1"
 
@@ -328,13 +331,13 @@ def main (args : List String) : IO Unit := do
     qaFrame := qaFrame + 1
     let motionFrame := qaFrame == 60 || qaFrame == 120 || qaFrame == 180 || qaFrame == 240
     let capturePath? :=
-      if qaFirstMaximizeArg && qaFrame == 120 then some "/tmp/axiom-first-live-maximize.png"
-      else if qaWindowCycleArg && qaFrame == 120 then some "/tmp/axiom-cycle-maximize-1.png"
-      else if qaWindowCycleArg && qaFrame == 260 then some "/tmp/axiom-cycle-restored.png"
-      else if qaWindowCycleArg && qaFrame == 400 then some "/tmp/axiom-cycle-maximize-2.png"
-      else if qaMotionArg && motionFrame then some s!"/tmp/axiom-motion-{qaFrame}.png"
-      else if qaInteractArg && qaFrame == 70 then some "/tmp/axiom-interact-break.png"
-      else if qaInteractArg && qaFrame == 110 then some "/tmp/axiom-interact-place.png"
+      if qaFirstMaximizeArg && qaFrame == 120 then some s!"{qaTmp}/axiom-first-live-maximize.png"
+      else if qaWindowCycleArg && qaFrame == 120 then some s!"{qaTmp}/axiom-cycle-maximize-1.png"
+      else if qaWindowCycleArg && qaFrame == 260 then some s!"{qaTmp}/axiom-cycle-restored.png"
+      else if qaWindowCycleArg && qaFrame == 400 then some s!"{qaTmp}/axiom-cycle-maximize-2.png"
+      else if qaMotionArg && motionFrame then some s!"{qaTmp}/axiom-motion-{qaFrame}.png"
+      else if qaInteractArg && qaFrame == 70 then some s!"{qaTmp}/axiom-interact-break.png"
+      else if qaInteractArg && qaFrame == 110 then some s!"{qaTmp}/axiom-interact-place.png"
       else if qaFrame == 120 then qaCapture?
       else none
     if let some path := capturePath? then
@@ -353,8 +356,8 @@ def main (args : List String) : IO Unit := do
             else if qaFrame < 300 then "cycle-restored"
             else "cycle-maximize-2"
           let metricsPath :=
-            if qaWindowCycleArg then s!"/tmp/axiom-window-{mode}-metrics.txt"
-            else "/tmp/axiom-window-metrics.txt"
+            if qaWindowCycleArg then s!"{qaTmp}/axiom-window-{mode}-metrics.txt"
+            else s!"{qaTmp}/axiom-window-metrics.txt"
           IO.FS.writeFile metricsPath
             s!"mode={mode}\nscreen={screenWidth}x{screenHeight}\nrender={renderWidth}x{renderHeight}\nlayout={layoutWidth}x{layoutHeight}\nscale={scale.x}x{scale.y}\n"
         -- Entering and leaving 3D mode flushes Raylib's queued 2D HUD batch,
@@ -372,7 +375,7 @@ def main (args : List String) : IO Unit := do
       (!qaMotionArg && !qaWindowCycleArg && qaFrame == 132 && qaCapture?.isSome))
     if qaShouldExit then
       let average := if qaDtCount == 0 then 0 else qaDtTotal / qaDtCount.toFloat32
-      IO.FS.writeFile "/tmp/axiom-qa-perf.txt"
+      IO.FS.writeFile s!"{qaTmp}/axiom-qa-perf.txt"
         s!"frames={qaDtCount}\navg_ms={average * 1000}\nmax_ms={qaDtMax * 1000}\nmax_frame={qaDtMaxFrame}\n"
       break
 

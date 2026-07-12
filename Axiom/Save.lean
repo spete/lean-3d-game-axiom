@@ -107,23 +107,31 @@ def decodeSave (bytes : ByteArray) : Option (World × Player) := do
     some (world, player)
   else none
 
+def saveFileName : String := "first-light.axm"
+
 def saveDirectory : IO System.FilePath := do
-  let home ← IO.getEnv "HOME"
-  return System.FilePath.mk ((home.getD ".") ++ "/Library/Application Support/Axiom")
+  if System.Platform.isWindows then
+    let appData ← IO.getEnv "APPDATA"
+    return System.FilePath.mk (appData.getD ".") / "Axiom"
+  else
+    let home ← IO.getEnv "HOME"
+    return System.FilePath.mk ((home.getD ".") ++ "/Library/Application Support/Axiom")
 
 def savePath : IO System.FilePath := do
-  return (← saveDirectory) / "first-light.axm"
+  return (← saveDirectory) / saveFileName
 
-def saveGame (world : World) (player : Player) : IO Unit := do
-  let directory ← saveDirectory
+def saveGameAt (directory : System.FilePath) (world : World) (player : Player) : IO Unit := do
   IO.FS.createDirAll directory
-  let path ← savePath
+  let path := directory / saveFileName
   let temp := System.FilePath.mk (path.toString ++ ".tmp")
   IO.FS.writeBinFile temp (encodeSave world player)
   IO.FS.rename temp path
 
-def loadGame? : IO (Option (World × Player)) := do
-  let path ← savePath
+def saveGame (world : World) (player : Player) : IO Unit := do
+  saveGameAt (← saveDirectory) world player
+
+def loadGameAt? (directory : System.FilePath) : IO (Option (World × Player)) := do
+  let path := directory / saveFileName
   try
     let bytes ← IO.FS.readBinFile path
     match decodeSave bytes with
@@ -132,10 +140,13 @@ def loadGame? : IO (Option (World × Player)) := do
       -- Never silently overwrite a damaged or incompatible world. Move it
       -- aside before starting a fresh island so manual recovery stays possible.
       let nonce ← IO.monoMsNow
-      let backup := (← saveDirectory) / s!"first-light.corrupt-{nonce}.axm"
+      let backup := directory / s!"first-light.corrupt-{nonce}.axm"
       try IO.FS.rename path backup catch _ => pure ()
       return none
   catch _ =>
     return none
+
+def loadGame? : IO (Option (World × Player)) := do
+  loadGameAt? (← saveDirectory)
 
 end Axiom

@@ -182,6 +182,26 @@ def main : IO Unit := do
   let invalidVoxelWorld : World := { changed with voxels := changed.voxels.set! 123 255 }
   check "unknown block IDs are rejected" (decodeSave (encodeSave invalidVoxelWorld richPlayer)).isNone
 
+  IO.println "Save persistence acceptance"
+  let tempBase ← IO.getEnv "TEMP"
+  let saveDir := System.FilePath.mk (tempBase.getD "/tmp") / "axiom-test-saves"
+  if ← saveDir.pathExists then IO.FS.removeDirAll saveDir
+  saveGameAt saveDir changed richPlayer
+  let diskLoaded ← loadGameAt? saveDir
+  check "on-disk save round-trips" diskLoaded.isSome
+  if let some (diskWorld, diskPlayer) := diskLoaded then
+    check "disk round-trip preserves every voxel" (diskWorld.voxels.data == changed.voxels.data)
+    check "disk round-trip preserves hotbar" (diskPlayer.selected == richPlayer.selected)
+  check "missing save loads as none" (← loadGameAt? (saveDir / "nowhere")).isNone
+  IO.FS.writeBinFile (saveDir / saveFileName) (ByteArray.mk #[1, 2, 3])
+  check "corrupt save on disk loads as none" (← loadGameAt? saveDir).isNone
+  check "corrupt save is moved aside, not left in place"
+    (!(← (saveDir / saveFileName).pathExists))
+  let entries ← saveDir.readDir
+  check "corrupt save is quarantined on disk"
+    (entries.any (fun entry => entry.fileName.startsWith "first-light.corrupt-"))
+  IO.FS.removeDirAll saveDir
+
   IO.println "Effects acceptance"
   let wav := synthWav 1 0.1
   check "procedural sound is a complete PCM WAV" (wav.size > 44 && wav.get! 0 == 82 && wav.get! 8 == 87)

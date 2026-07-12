@@ -5,6 +5,19 @@ versioning for tagged releases.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-12
+
+### Fixed
+
+- Keep Raylib's 2D transform synchronized after macOS Retina window resizes,
+  preventing the sky, HUD, and pause overlay from being trapped in one corner.
+
+### Added
+
+- Reproducible dependency setup that applies and rebuilds the pinned Raylib
+  compatibility patch on clean machines and CI.
+- A packaged-app resize regression mode for Retina viewport QA.
+
 ## [0.2.0] - 2026-07-12
 
 ### Added

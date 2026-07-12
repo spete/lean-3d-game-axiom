@@ -26,10 +26,8 @@ jobs:
           build: false
           test: false
           use-mathlib-cache: false
-      - name: Fetch pinned Lake dependencies
-        run: lake update
-      - name: Build pinned raylib submodule
-        run: lake run raylib/buildSubmodule
+      - name: Prepare pinned dependencies and platform patches
+        run: ./scripts/setup.sh
       - name: Build game and acceptance suite
         run: lake build axiom axiom_tests
       - name: Run acceptance suite

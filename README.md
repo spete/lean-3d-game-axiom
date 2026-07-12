@@ -62,14 +62,14 @@ brew install elan
 Clone this repository, enter its directory, then run:
 
 ```bash
-LEAN_CC=/usr/bin/clang lake update
-LEAN_CC=/usr/bin/clang lake run raylib/buildSubmodule
+./scripts/setup.sh
 ./scripts/build.sh
 ./scripts/run.sh
 ```
 
-The first setup builds the pinned Raylib source and can take several minutes.
-Afterwards, `./scripts/run.sh` launches the game.
+The first setup builds the pinned Raylib source, including Axiom's macOS Retina
+resize fix, and can take several minutes. Afterwards, `./scripts/run.sh`
+launches the game.
 
 ## Explore the code
 

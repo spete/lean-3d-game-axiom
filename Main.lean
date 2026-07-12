@@ -101,13 +101,18 @@ def main (args : List String) : IO Unit := do
   let qaMotionArg := args.contains "--qa-motion"
   let qaInteractArg := args.contains "--qa-interact"
   let qaPerfArg := args.contains "--qa-perf"
+  let qaResizeArg := args.contains "--qa-resize"
+  if qaResizeArg then Raylib.setWindowSize 1180 720
   let envCapture ← IO.getEnv "AXIOM_QA_CAPTURE"
   let envPlay ← IO.getEnv "AXIOM_QA_PLAY"
+  let envHold ← IO.getEnv "AXIOM_QA_HOLD"
+  let qaHold := envHold == some "1"
   let qaCapture? :=
     if qaTitleArg then some "/tmp/axiom-title.png"
     else if qaPlayArg then some "/tmp/axiom-play.png"
+    else if qaResizeArg then some "/tmp/axiom-resize.png"
     else envCapture
-  let qaPlay := qaPlayArg || qaInteractArg || qaPerfArg || envPlay == some "1"
+  let qaPlay := qaPlayArg || qaInteractArg || qaPerfArg || qaResizeArg || envPlay == some "1"
 
   drawLoading "AXIOM: FIRST LIGHT" "Recovering the island from a proof..."
   let loaded ← loadGame?
@@ -131,8 +136,8 @@ def main (args : List String) : IO Unit := do
   let audio ← loadAudioBank ctx
   let mut gpu ← buildGpuWorld ctx world
   let mut pendingMeshes : Array PendingMeshJob := #[]
-  let mut screen := if qaPlay then Screen.playing else Screen.title
-  if qaPlay then Raylib.disableCursor
+  let mut screen := if qaResizeArg then Screen.paused else if qaPlay then Screen.playing else Screen.title
+  if qaPlay && !qaResizeArg then Raylib.disableCursor
   let mut showDebug := false
   let mut hit : Option VoxelHit := none
   let mut lastBreak : Float32 := -10
@@ -149,7 +154,7 @@ def main (args : List String) : IO Unit := do
   repeat do
     let time ← Raylib.getTime
     let dt ← Raylib.getFrameTime
-    if qaFrame ≥ 10 && (qaTitleArg || qaPlayArg || qaMotionArg || qaInteractArg || qaPerfArg) then
+    if qaFrame ≥ 10 && (qaTitleArg || qaPlayArg || qaMotionArg || qaInteractArg || qaPerfArg || qaResizeArg) then
       qaDtTotal := qaDtTotal + dt
       if dt > qaDtMax then
         qaDtMax := dt
@@ -247,24 +252,25 @@ def main (args : List String) : IO Unit := do
             toastUntil := time + 3
           lastSave := time
     | .paused =>
-      let resumeClicked ← Raylib.isMouseButtonPressed .left
-      if (← Raylib.isKeyPressed .escape) || resumeClicked then
-        playSound? audio.ui
-        screen := .playing
-        Raylib.disableCursor
-      else if ← Raylib.isKeyPressed .q then
-        if ← saveGameSafe world player then
-          hasSave := true
-          screen := .title
-          hit := none
-          Raylib.enableCursor
-        else
-          toast := "Could not save — staying in world"
-          toastUntil := time + 3
-      else if ← Raylib.isKeyPressed .r then
-        player := newPlayer world
-        toast := "Returned to first light"
-        toastUntil := time + 2
+      if !qaResizeArg then
+        let resumeClicked ← Raylib.isMouseButtonPressed .left
+        if (← Raylib.isKeyPressed .escape) || resumeClicked then
+          playSound? audio.ui
+          screen := .playing
+          Raylib.disableCursor
+        else if ← Raylib.isKeyPressed .q then
+          if ← saveGameSafe world player then
+            hasSave := true
+            screen := .title
+            hit := none
+            Raylib.enableCursor
+          else
+            toast := "Could not save — staying in world"
+            toastUntil := time + 3
+        else if ← Raylib.isKeyPressed .r then
+          player := newPlayer world
+          toast := "Returned to first light"
+          toastUntil := time + 2
 
     particles := updateParticles particles dt
     let camera := if screen == .title then titleCamera time else playCamera player
@@ -286,15 +292,19 @@ def main (args : List String) : IO Unit := do
     Raylib.endMode3D
     drawWorldTint time
 
-    match screen with
-    | .title => drawTitleOverlay hasSave
-    | .playing =>
-      drawHud player showDebug
-      if time < toastUntil then drawToast toast
-    | .paused =>
+    if qaResizeArg then
       drawHud player false
       drawPauseOverlay
-      if time < toastUntil then drawToast toast
+    else
+      match screen with
+      | .title => drawTitleOverlay hasSave
+      | .playing =>
+        drawHud player showDebug
+        if time < toastUntil then drawToast toast
+      | .paused =>
+        drawHud player false
+        drawPauseOverlay
+        if time < toastUntil then drawToast toast
     qaFrame := qaFrame + 1
     let motionFrame := qaFrame == 60 || qaFrame == 120 || qaFrame == 180 || qaFrame == 240
     let capturePath? :=
@@ -304,6 +314,14 @@ def main (args : List String) : IO Unit := do
       else if qaFrame == 120 then qaCapture?
       else none
     if let some path := capturePath? then
+        if qaResizeArg then
+          let screenWidth ← Raylib.getScreenWidth
+          let screenHeight ← Raylib.getScreenHeight
+          let renderWidth ← Raylib.getRenderWidth
+          let renderHeight ← Raylib.getRenderHeight
+          let scale ← Raylib.getWindowScaleDPI
+          IO.FS.writeFile "/tmp/axiom-resize-metrics.txt"
+            s!"screen={screenWidth}x{screenHeight}\nrender={renderWidth}x{renderHeight}\nscale={scale.x}x{scale.y}\n"
         -- Entering and leaving 3D mode flushes Raylib's queued 2D HUD batch,
         -- allowing the QA readback to sample the complete frame pre-swap.
         Raylib.beginMode3D camera
@@ -312,9 +330,9 @@ def main (args : List String) : IO Unit := do
         let exported ← Raylib.exportImage image (System.FilePath.mk path)
         IO.eprintln s!"QA screenshot ({exported}): {path}"
     Raylib.endDrawing
-    let qaShouldExit := (qaMotionArg && qaFrame == 260) || (qaInteractArg && qaFrame == 130) ||
-      (qaPerfArg && qaFrame == 600) ||
-      (!qaMotionArg && qaFrame == 132 && qaCapture?.isSome)
+    let qaShouldExit := !qaHold && ((qaMotionArg && qaFrame == 260) ||
+      (qaInteractArg && qaFrame == 130) || (qaPerfArg && qaFrame == 600) ||
+      (!qaMotionArg && qaFrame == 132 && qaCapture?.isSome))
     if qaShouldExit then
       let average := if qaDtCount == 0 then 0 else qaDtTotal / qaDtCount.toFloat32
       IO.FS.writeFile "/tmp/axiom-qa-perf.txt"

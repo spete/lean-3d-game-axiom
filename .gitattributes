@@ -3,3 +3,4 @@
 *.png binary
 *.icns binary
 *.lean linguist-language=Lean
+*.patch -whitespace

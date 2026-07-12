@@ -1,0 +1,25 @@
+diff --git a/src/platforms/rcore_desktop_glfw.c b/src/platforms/rcore_desktop_glfw.c
+--- a/src/platforms/rcore_desktop_glfw.c
++++ b/src/platforms/rcore_desktop_glfw.c
+@@ -1754,10 +1754,19 @@ static void WindowSizeCallback(GLFWwindow *window, int width, int height)
+ 
+     // if we are doing automatic DPI scaling, then the "screen" size is divided by the window scale
+     if (IsWindowState(FLAG_WINDOW_HIGHDPI))
+     {
+-        width = (int)(width / GetWindowScaleDPI().x);
+-        height = (int)(height / GetWindowScaleDPI().y);
++        Vector2 scale = GetWindowScaleDPI();
++        width = (int)(width / scale.x);
++        height = (int)(height / scale.y);
++
++#if defined(__APPLE__)
++        // The content-scale callback is not fired for an ordinary resize on
++        // macOS because the Retina scale itself did not change. Keep the 2D
++        // transform in sync with the divided logical dimensions here; without
++        // this, overlays occupy only the top-left fraction of the framebuffer.
++        CORE.Window.screenScale = MatrixScale(scale.x, scale.y, 1.0f);
++#endif
+     }
+ 
+     // Set current screen size
+     CORE.Window.screen.width = width;

@@ -18,6 +18,28 @@ def vnormalize (v : Vector3) : Vector3 :=
 
 def floorInt (value : Float32) : Int := value.floor.toInt32.toInt
 
+/-! The named simulation constants below are the single source of truth for
+both the physics code and the formal step-bound specifications in
+`Axiom/Theorems.lean`. Keeping them named (rather than inline literals)
+is what lets the theorems constrain the live values: rebalancing one of
+these re-evaluates the proofs. -/
+
+/-- Half-width of the player's collision box, in blocks. -/
+def playerRadius : Float32 := 0.29
+
+/-- Height of the player's collision box, in blocks. -/
+def playerHeight : Float32 := 1.78
+
+/-- Upper bound applied to a frame's simulation timestep, in seconds. -/
+def maxPhysicsDt : Float32 := 0.033
+
+/-- Terminal falling speed, in blocks per second. -/
+def maxFallSpeed : Float32 := 30.0
+
+/-- Flying movement speed — the fastest horizontal speed, in blocks per
+second. -/
+def flySpeed : Float32 := 10.5
+
 structure Player where
   position : Vector3
   velocity : Vector3 := ⟨0,0,0⟩
@@ -45,8 +67,8 @@ def Player.cameraTarget (player : Player) : Vector3 :=
   vadd player.eye player.lookDirection
 
 def playerCollides (world : World) (position : Vector3) : Bool := Id.run do
-  let radius : Float32 := 0.29
-  let height : Float32 := 1.78
+  let radius := playerRadius
+  let height := playerHeight
   let minX := floorInt (position.x - radius)
   let maxX := floorInt (position.x + radius - 0.001)
   let minY := floorInt position.y
@@ -61,11 +83,11 @@ def playerCollides (world : World) (position : Vector3) : Bool := Id.run do
   return false
 
 def blockIntersectsPlayer (player : Player) (x y z : Int) : Bool :=
-  let radius : Float32 := 0.29
+  let radius := playerRadius
   let px0 := player.position.x - radius
   let px1 := player.position.x + radius
   let py0 := player.position.y
-  let py1 := player.position.y + 1.78
+  let py1 := player.position.y + playerHeight
   let pz0 := player.position.z - radius
   let pz1 := player.position.z + radius
   let bx0 := (Int32.ofInt x).toFloat32
@@ -103,7 +125,7 @@ def moveWithCollisions (world : World) (position delta : Vector3) : Vector3 × B
 @[inline] def boolFloat (value : Bool) : Float32 := if value then 1.0 else 0.0
 
 def updatePlayer (world : World) (controls : Controls) (dtRaw : Float32) (player : Player) : Player := Id.run do
-  let dt : Float32 := min dtRaw 0.033
+  let dt : Float32 := min dtRaw maxPhysicsDt
   let yaw : Float32 := player.yaw + controls.mouseX * 0.0022
   let pitch : Float32 := clamp32 (-1.48) 1.48 (player.pitch - controls.mouseY * 0.0022)
   let flying : Bool := if controls.toggleFly then !player.flying else player.flying
@@ -112,7 +134,7 @@ def updatePlayer (world : World) (controls : Controls) (dtRaw : Float32) (player
   let forward : Vector3 := ⟨yaw.sin, 0, -yaw.cos⟩
   let right : Vector3 := ⟨yaw.cos, 0, yaw.sin⟩
   let wish : Vector3 := vnormalize (vadd (vmul forward forwardAmount) (vmul right sideAmount))
-  let speed : Float32 := if flying then 10.5 else if controls.sprint then 8.0 else 5.2
+  let speed : Float32 := if flying then flySpeed else if controls.sprint then 8.0 else 5.2
   let targetX : Float32 := wish.x * speed
   let targetZ : Float32 := wish.z * speed
   let accel : Float32 := if player.grounded then 16.0 else 5.0
@@ -123,7 +145,7 @@ def updatePlayer (world : World) (controls : Controls) (dtRaw : Float32) (player
     if flying then
       (boolFloat controls.jumpDown - boolFloat controls.descend) * speed
     else if controls.jumpPressed && player.grounded then 8.2
-    else max (-30.0) (player.velocity.y - 23.0 * dt)
+    else max (-maxFallSpeed) (player.velocity.y - 23.0 * dt)
   let initialVelocity : Vector3 := ⟨vx, vy, vz⟩
   let delta : Vector3 := vmul initialVelocity dt
   let moved := moveWithCollisions world player.position delta

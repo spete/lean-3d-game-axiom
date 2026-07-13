@@ -5,6 +5,16 @@ versioning for tagged releases.
 
 ## [Unreleased]
 
+### Added
+
+- First formal specifications (`Axiom/Theorems.lean`): a machine-checked
+  mesh-locality theorem (edits outside a section's axial footprint leave
+  its mesh unchanged — the soundness core of incremental remeshing),
+  accessor laws for the voxel store, voxel-index safety and injectivity,
+  collision step bounds over the named tunneling-safety constants, and
+  evaluated proofs that the default island has valid block ids, a safe
+  grounded spawn, bounded terrain, and complete mesh triangles.
+
 ## [0.2.1] - 2026-07-12
 
 ### Fixed

@@ -31,7 +31,15 @@ job supersedes an older pending job for the same section.
 
 ## Trust and verification
 
-The project uses Lean primarily as a compiled functional language today. The
+The project uses Lean primarily as a compiled functional language. The
 acceptance suite checks deterministic generation, mesh consistency, collision,
-ray traversal, edit semantics, section seams, saves, audio and particles. It
-does not yet contain formal proofs of gameplay properties.
+ray traversal, edit semantics, section seams, saves, audio and particles.
+
+`Axiom/Theorems.lean` adds the first machine-checked specifications, re-proved
+on every build: voxel-index safety and injectivity for all coordinates
+(kernel-level trust), and evaluated facts about the default island — valid
+block ids, a collision-free grounded spawn, bounded terrain, complete mesh
+triangles — plus the arithmetic step bounds behind the collision sweep's
+soundness (these use `native_decide`, which additionally trusts the Lean
+compiler). The module documents exactly what each statement does and does not
+claim; properties beyond it remain covered by the acceptance suite.

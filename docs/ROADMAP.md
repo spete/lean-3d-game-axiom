@@ -10,8 +10,9 @@ Potential future work:
 - Greedy meshing, frustum culling and richer transparent-water rendering.
 - Settings for field of view, sensitivity, audio and display mode.
 - Expanded block palette, vegetation and underground features.
-- Optional formal specifications for save round-trips, coordinate safety and
-  selected collision invariants.
+- Further formal specifications: save round-trip and accessor laws
+  (coordinate safety, collision step bounds and default-island facts are
+  proved in `Axiom/Theorems.lean`).
 
 Roadmap items are directions, not promises. Issues should propose a bounded
 milestone and acceptance test.

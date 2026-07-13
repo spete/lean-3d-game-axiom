@@ -37,7 +37,7 @@ def spawnBlockParticles (block : UInt8) (x y z seed count : Nat) : Array Particl
   return particles
 
 def updateParticles (particles : Array Particle) (dtRaw : Float32) : Array Particle := Id.run do
-  let dt := min 0.033 dtRaw
+  let dt := min maxPhysicsDt dtRaw
   let mut alive := #[]
   for particle in particles do
     let life := particle.life - dt

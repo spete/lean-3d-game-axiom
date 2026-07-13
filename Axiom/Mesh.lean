@@ -31,11 +31,16 @@ def shadeColor (base : Rgba) (face : Nat) (x y z : Nat) : Rgba :=
 
 @[inline] def MeshCpu.pushVertex
     (mesh : MeshCpu) (position normal : Vector3) (color : Rgba) : MeshCpu :=
-  { positions := mesh.positions
+  -- Destructure before pushing: consuming `mesh` first makes each field
+  -- uniquely referenced, so every push is an in-place append. Projecting
+  -- fields out of a still-live record shares them and each push then
+  -- copies the whole array — an accidental O(n²) that dominated startup.
+  let ⟨positions, normals, colors⟩ := mesh
+  { positions := positions
       |>.push position.x |>.push position.y |>.push position.z
-    normals := mesh.normals
+    normals := normals
       |>.push normal.x |>.push normal.y |>.push normal.z
-    colors := mesh.colors
+    colors := colors
       |>.push color.r |>.push color.g |>.push color.b |>.push color.a }
 
 def faceGeometry (face : Nat) (x y z : Nat) : Vector3 × Array Vector3 :=

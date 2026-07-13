@@ -44,3 +44,8 @@ lean_exe "axiom_tests" {
   root := `Tests
   moreLinkArgs := nativeLinkArgs
 }
+
+lean_exe "axiom_bench" {
+  root := `Bench
+  moreLinkArgs := nativeLinkArgs
+}

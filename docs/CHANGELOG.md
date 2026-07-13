@@ -5,6 +5,18 @@ versioning for tagged releases.
 
 ## [Unreleased]
 
+### Added
+
+- Startup microbenchmark (`lake exe axiom_bench`) covering world
+  generation, audio synthesis, meshing, and vertex packing.
+
+### Fixed
+
+- Full-island meshing was accidentally quadratic (each vertex push copied
+  the growing vertex arrays), freezing startup for 10+ seconds on slower
+  machines and inflating per-edit remesh cost; meshing the whole island
+  now takes ~0.1 s on the same hardware (~130× faster).
+
 ## [0.2.1] - 2026-07-12
 
 ### Fixed

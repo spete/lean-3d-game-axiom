@@ -325,11 +325,10 @@ force the dGPU via Windows Settings → Display → Graphics if needed.
 
 **Q: Startup shows the loading screen, then the window freezes /
 "Not Responding" for several seconds before the title appears.**
-Known behavior, not Windows-specific: initial world meshing runs
-synchronously before the first interactive frame, and Windows labels a
-window that isn't pumping messages "Not Responding" sooner than macOS
-shows a beachball. It recovers by itself once the island is built — wait
-it out; nothing is wrong.
+Fixed: initial world meshing previously hit an accidental quadratic and
+could take 10+ seconds on slower machines; it now completes in well under
+a second. If you still see a multi-second freeze on a current build,
+that's a bug worth reporting (include `lake exe axiom_bench` output).
 
 **Q: Mining/placing makes no sound.**
 The audio device failed to initialize (the game degrades silently by

@@ -36,12 +36,18 @@ windowed with correct rendering, audio, saves, and high-DPI layout.
 
 Notes:
 
-- **It must be the UCRT64 environment**, not MINGW64, not MSYS, and not any
-  MSVC toolchain. Section 3 explains why this is a hard requirement, not a
-  preference.
-- elan's own zip says "msvc" in its filename; that describes elan the
-  *tool*, not the Lean toolchain it installs. Ignore it.
-- No Visual Studio, no clang, no vcpkg needed.
+- **Use the UCRT64 environment**, not MINGW64, not MSYS. §3.2 explains why the
+  C runtime must be UCRT — that is a hard requirement, not a preference. MSVC
+  is not part of this build; it can compile the C dependencies, but only with
+  shims and at a net loss (§8).
+- elan's zip is named `elan-x86_64-pc-windows-msvc.zip`. That is a **Rust
+  target triple** describing how the elan binary itself was built — elan is
+  written in Rust, a fork of rustup, and Rust offers `-pc-windows-msvc` and
+  `-pc-windows-gnu` flavors of its own toolchain. It is an accurate name for
+  elan and says nothing about the Lean toolchain elan downloads, which is
+  `x86_64-w64-windows-gnu`. Irrelevant here; ignore it.
+- No Visual Studio and no vcpkg needed. Lean bundles its own clang; you never
+  invoke it directly.
 
 ## 2. Quick start
 
@@ -103,19 +109,27 @@ and is built in MSYS2's CLANG64 environment, which targets the
 **Universal C Runtime (UCRT)**. Every object linked into the final exe must
 agree on two things:
 
-- **Object/ABI family**: MinGW ("windows-gnu"), not MSVC. This rules out
-  `cl.exe` entirely — its objects, runtime model, and flag syntax
-  (`/std:`, `foo.lib`) are a different world.
 - **C runtime**: UCRT, not the legacy MSVCRT. This rules out MSVCRT-era
-  MinGW distributions (e.g. TDM-GCC). Note that *modern* mingw-w64-builds
-  releases target UCRT and do qualify — the env script's signature check
-  (§4) tests the property, not the brand.
+  MinGW distributions (e.g. TDM-GCC). *Modern* mingw-w64-builds releases
+  target UCRT and do qualify — the env script's signature check (§4) tests the
+  property, not the brand. MSVC's `/MD` also targets UCRT, so this criterion
+  alone does not exclude MSVC (§8).
+- **Link-time ABI**: the final image must be `windows-gnu`, because Lean's
+  runtime ships as a MinGW-GNU library set — `libc++.a`, `libc++abi.a`,
+  `libunwind.a`, `libmingwex.a`, `libmoldname.a`, `crt2.o` under
+  `~/.elan/toolchains/<name>/lib/`. `leanc` produces such an image (§3.3).
+  MSVC's `link.exe` cannot: it rejects Lean's C++ runtime objects outright with
+  `LNK1143: no symbol for COMDAT section`, because clang emits GNU-style
+  COMDATs for the `windows-gnu` target (§8). Note this is a limit on the
+  *linker*, not on tooling availability — Lean bundles a complete linker of its
+  own, so you never need an external one (§8).
 
-MSYS2's **UCRT64** environment is the recommended distribution satisfying
-both.
-The good news: raylib is pure C99, so the usual C++ cross-toolchain hazards
-(name mangling, exception models) don't apply — matching the CRT and object
-format is sufficient.
+MSYS2's **UCRT64** environment is the recommended distribution: it satisfies
+the CRT requirement out of the box, and its objects enter the `leanc` link with
+no massaging.
+raylib is pure C99, so the usual C++ cross-toolchain hazards (name mangling,
+exception models) don't apply — matching the CRT and object format is
+sufficient. Compiled C is broadly link-compatible across Windows toolchains.
 
 ### 3.3 The linking trap (read this before "improving" the build)
 
@@ -133,10 +147,14 @@ to Windows (`LEAN_CC=gcc`) **breaks the link**, in two stages:
 
 The resolution is to split the roles as in 3.1: **do not set `LEAN_CC` at
 all** on Windows. `lake` then invokes `leanc` to link; leanc's bundled clang
-resolves Lean's runtime from its own sysroot correctly. The only things it
-*cannot* find are the Win32 import libraries (`opengl32`, `gdi32`, `winmm`,
-`shell32`, `user32`) — Lean's trimmed sysroot doesn't carry them — so the
-lakefile adds one `-L{MINGW_UCRT_ROOT}/lib` for exactly that.
+resolves Lean's runtime from its own sysroot correctly.
+
+What that sysroot does *not* carry is three of the Win32 import libraries the
+game needs. `~/.elan/toolchains/<name>/lib/` ships `libkernel32.a`,
+`libuser32.a`, `libshell32.a`, `libadvapi32.a`, `libws2_32.a` and more, but
+**not** `libopengl32.a`, `libgdi32.a`, or `libwinmm.a`. The lakefile adds one
+`-L{MINGW_UCRT_ROOT}/lib` to supply those three (the link line names all five,
+harmlessly — the other two resolve from Lean's own sysroot either way).
 
 (Aside: this is also why the macOS lakefile computes `-L{leanSystemLibDir}`
 — on macOS `LEAN_CC` *is* set, so the system clang needs to be told where
@@ -171,9 +189,12 @@ leanc links everything with the Windows link set from `nativeLinkArgs`:
 
 ```
 -L.lake/packages/raylib/raylib/build/raylib   raylib itself
--L{MINGW_UCRT_ROOT}/lib                           Win32 import libraries
+-L{MINGW_UCRT_ROOT}/lib                       opengl32, gdi32, winmm (§3.3)
 -lraylib -lopengl32 -lgdi32 -lwinmm -lshell32 -luser32
 ```
+
+(`shell32` and `user32` resolve from Lean's own sysroot; only the first three
+need the added `-L`.)
 
 Renderer: OpenGL 3.3 core via WGL — raylib's desktop default. There is no
 DirectX, ANGLE, or Vulkan anywhere; any GPU driver from the last decade
@@ -276,10 +297,12 @@ The second stage of the same mistake: gcc-as-linker found Lean's libraries
 with Lean's bundled MinGW pieces, and they disagree. There is no reliable
 flag-level fix. Link with leanc: `unset LEAN_CC`.
 
-**Q: Link fails: `cannot find -lopengl32` (or `-lgdi32`, `-lwinmm`, …).**
-leanc's trimmed sysroot has no Win32 import libraries. The lakefile passes
-`-L{MINGW_UCRT_ROOT}/lib` for these; if you see this error, `MINGW_UCRT_ROOT` is
-wrong or points at a non-UCRT64 environment. Check
+**Q: Link fails: `cannot find -lopengl32` (or `-lgdi32`, `-lwinmm`).**
+Exactly these three import libraries are absent from leanc's sysroot (§3.3);
+`kernel32`, `user32` and `shell32` are present there, which is why you never
+see this error for them. The lakefile passes `-L{MINGW_UCRT_ROOT}/lib` to
+supply the missing three; if you see this error, `MINGW_UCRT_ROOT` is wrong or
+points at a non-UCRT64 environment. Check
 `ls $MINGW_UCRT_ROOT/lib/libopengl32.a`.
 
 **Q: Compiling the binding's shim fails with missing standard headers
@@ -297,9 +320,11 @@ than this project; Lake is saying it kept ours (from `lean-toolchain`).
 Pinned SHAs make the resolution deterministic either way.
 
 **Q: CMake configure fails to find a compiler / picks MSVC.**
-You ran it outside the env script's PATH, so CMake auto-detected something
-else. Use `setup-windows.sh`, which passes
-`-DCMAKE_C_COMPILER="$MINGW_UCRT_CC"` explicitly.
+You ran it outside the env script's PATH, so CMake auto-detected whatever else
+was installed. Use `setup-windows.sh`, which passes
+`-DCMAKE_C_COMPILER="$MINGW_UCRT_CC"` explicitly. An MSVC-built `raylib.lib`
+does not link as-is: it hits the `libOLDNAMES.a` / `_fltused` /
+`__security_cookie` sequence described in §8.
 
 **Q: Does the `patches/raylib-macos-hidpi-resize.patch` need applying?**
 No. Every hunk is `#if defined(__APPLE__)`-guarded; on Windows the patched
@@ -366,8 +391,49 @@ in any script is `lake update`/git fetching pinned dependencies.
 
 ## 8. Design decisions FAQ
 
-**Why not MSVC?** Wrong ABI family (§3.2), wrong flag dialect, and Lean
-cannot consume it. It is not a "harder" option; it is not an option.
+**Why not MSVC?** Not because it is impossible — because it costs shims and
+buys nothing. Everything below was verified against the pinned toolchain with
+Visual Studio 2022 and the Windows SDK present.
+
+*MSVC can compile the C dependencies.* `cl /MD` targets the same UCRT as Lean,
+both compilers emit COFF, and raylib is pure C, so there is no name mangling or
+exception model to reconcile. What differs is MSVC's CRT glue, and each piece
+costs a shim:
+
+| Link-time symptom | Cause | Shim |
+|---|---|---|
+| `could not open 'libOLDNAMES.a'` | MSVC writes `/DEFAULTLIB:"MSVCRT" /DEFAULTLIB:"OLDNAMES"` into every object's `.drectve` section | strip it (`objcopy --remove-section=.drectve`), or satisfy it with empty stub archives |
+| `undefined symbol: _fltused` | MSVC's "this TU uses floating point" marker | `int _fltused = 0x9875;` |
+| `undefined symbol: __security_cookie`, `__GSHandlerCheck`, … | stack-protector machinery, resident in `libcmt`/`msvcrt.lib` | compile with `/GS- /guard:cf-` |
+| `undefined symbol: __chkstk` | stack probes, emitted for frames over ~4 KB — raylib has them | none that is safe |
+
+`__chkstk` is decisive. It cannot be written in C. Suppressing it with `/Gs<n>`
+links cleanly and yields a **crashing binary** — verified with a 32 KB frame:
+clean link, then a segfault, because the guard-page probes were load-bearing.
+The only honest fix is hand-written assembly.
+
+Beyond the shims, Lake passes gcc-style flags (`-c -o out.o -I…`) to the
+binding's `cc`, which `cl.exe` does not accept — the C role would also need a
+flag-translating wrapper, or LLVM's `clang.exe`. And the list is open-ended:
+raylib is far larger than these probes, and every further CRT-glue symbol is one
+more shim. UCRT64 gcc needs none of it; its objects link as-is.
+
+*MSVC cannot link.* `link.exe` fed Lean's runtime fails at parse time —
+`libleanrt.a(object.cpp.obj) : fatal error LNK1143: no symbol for COMDAT
+section` — because clang emits GNU-style COMDATs for the `windows-gnu` target
+and MSVC's linker will not read them. It parses leanc's *C* objects fine,
+reaching ordinary `LNK2019` symbol resolution; Lean's *C++* runtime is the wall.
+Fixing that means rebuilding Lean's runtime for an MSVC target, i.e. the
+MSVC-ABI Lean upstream does not ship.
+
+*No external linker is needed regardless.* Lean bundles `clang`, `ld.lld` and
+`llvm-ar`. The only thing MinGW supplies that Lean's toolchain lacks is the
+three missing import libraries (§3.3) — and the Windows SDK carries those in
+`.Lib` form, which `ld.lld` consumes directly (`-lopengl32` resolves
+`OpenGL32.Lib` case-insensitively, so the lakefile's link args need no change).
+An MSVC-only machine can therefore compile *and* link, with `leanc` linking and
+no MinGW installed at all. The obstacle to MSVC is never the linker; it is the
+compile-side shims above.
 
 **Why gcc for C but leanc for linking, instead of one compiler for both?**
 Because the two jobs have disjoint requirements: compiling raylib needs
@@ -376,11 +442,15 @@ Lean's private runtime layout (which only leanc knows). Splitting the roles
 means each tool does the part it's authoritative for. See §3.3 for what
 happens with a single-compiler approach.
 
-**Why MSYS2 UCRT64 and not the plain mingw-w64 build or TDM-GCC that may
-already be installed?** CRT mismatch: those target MSVCRT (or bundle their
-own runtime); Lean targets UCRT. C is forgiving, but mixed CRTs are exactly
-the class of bug that appears only at 2 a.m. as a heap corruption. UCRT64
-removes the question.
+**Why MSYS2 UCRT64 and not some other mingw-w64 build or the TDM-GCC that may
+already be installed?** A CRT mismatch is what disqualifies a toolchain: Lean
+targets UCRT, and an MSVCRT-era distribution (TDM-GCC, older mingw-w64
+packagings) mixes C runtimes — the class of bug that surfaces at 2 a.m. as heap
+corruption. The requirement is a property, not a brand. A modern
+mingw-w64-builds release targets UCRT, qualifies, and passes the env script's
+signature check (§4). MSYS2 UCRT64 is the recommendation because it satisfies
+the check by construction and is trivial to install, not because it is the only
+accepted toolchain.
 
 **Why OpenGL and not something newer?** raylib's desktop backend is GL 3.3
 and the game uses no advanced GPU features — vertex-colored static meshes
